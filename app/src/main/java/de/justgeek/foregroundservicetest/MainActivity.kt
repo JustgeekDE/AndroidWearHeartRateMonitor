@@ -12,7 +12,6 @@ import android.os.IBinder
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.wearable.activity.WearableActivity
-import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import de.justgeek.foregroundservicetest.ForegroundService.LocalBinder
@@ -29,7 +28,7 @@ class MainActivity : WearableActivity() {
   private var mService: ForegroundService? = null
   var mBound = false
   var runDisplayUpdate = true
-  var storageHelper = FileStorage("heartRate")
+  var storageHelper = FileStorage()
 
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,7 +89,7 @@ class MainActivity : WearableActivity() {
     val r = object : Runnable {
       override fun run() {
         if (runDisplayUpdate) {
-          handler.postDelayed(this, 5000)
+          handler.postDelayed(this, 2000)
           updateDisplay()
         }
       }
@@ -100,7 +99,7 @@ class MainActivity : WearableActivity() {
 
   private fun updateDisplay() {
     if (mService != null) {
-      val values = (this.mService as ForegroundService).getValues()
+      val values = (this.mService as ForegroundService).getValues(ForegroundService.SENORS.HEARTRATE)
       val count = values.size
       var lastHeartRate = ""
       if (count > 0) {
@@ -137,12 +136,10 @@ class MainActivity : WearableActivity() {
 
   fun onSavePressed() {
     if (mService != null) {
-      val values = (this.mService as ForegroundService).getValues()
-      if (storageHelper.storeData(values)) {
-        Log.d(TAG, "Stored " + values.size + " values.")
-      } else {
-        Log.d(TAG, "Error trying to store data")
-      }
+      val foregroundService = this.mService as ForegroundService
+      storageHelper.storeData("heartrate", foregroundService.getValues(ForegroundService.SENORS.HEARTRATE))
+      storageHelper.storeData("rotation", foregroundService.getValues(ForegroundService.SENORS.ROTATION))
+      storageHelper.storeData("battery", foregroundService.getValues(ForegroundService.SENORS.BATTERY))
     }
 
   }

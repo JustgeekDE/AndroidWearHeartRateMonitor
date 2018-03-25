@@ -6,6 +6,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
+
 class SensorCollector : SensorEventListener {
 
   val TAG = "SensorCollector"
@@ -13,18 +14,21 @@ class SensorCollector : SensorEventListener {
   private var sensorManager: SensorManager
   private lateinit var sensor: Sensor
 
-  var values: MutableList<SensorEvent> = mutableListOf<SensorEvent>()
+  var values: MutableList<SensorData> = mutableListOf<SensorData>()
 
   private val sensorThreshhold: Int
   private var maxRetries: Int
   private var retries = 0
+  private var mainThreadRunning = false
+  private val interval: Int
 
-  private var isRunning = false
+  private var isSampling = false
 
-  constructor(sensorManager: SensorManager, retries: Int = 5, sensorThreshhold: Int = SensorManager.SENSOR_STATUS_ACCURACY_LOW) {
+  constructor(sensorManager: SensorManager, interval: Int = 30, retries: Int = 5, sensorThreshhold: Int = SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM) {
     this.sensorManager = sensorManager
     this.maxRetries = retries
     this.sensorThreshhold = sensorThreshhold
+    this.interval = interval
   }
 
   fun listAllSensors() {
@@ -32,6 +36,25 @@ class SensorCollector : SensorEventListener {
     for (sensor: Sensor in deviceSensors) {
       Log.d(TAG, "Sensor:" + sensor.name + ": " + sensor.stringType + ", power: " + sensor.power + " type: " + sensor.type)
     }
+  }
+
+  fun start() {
+    if (mainThreadRunning == false) {
+      mainThreadRunning = true
+      Thread(Runnable {
+        while (mainThreadRunning == true) {
+          Log.d(TAG, "Main Thread")
+          startSampling()
+          Thread.sleep(interval * 1000L)
+        }
+        stopSampling()
+        Log.d(TAG, "Main Thread finished")
+      }).start()
+    }
+  }
+
+  fun stop() {
+    mainThreadRunning = false
   }
 
   fun setSensor(sensorType: Int): Boolean {
@@ -49,29 +72,33 @@ class SensorCollector : SensorEventListener {
     return true;
   }
 
-  fun startSampling() {
+  private fun startSampling() {
     this.retries = maxRetries
     startSensorListener()
   }
 
+  private fun stopSampling() {
+    stopSensorListener()
+  }
+
   private fun stopSensorListener() {
     Log.d(TAG, "Stopping sensor listener")
-    isRunning = false
+    isSampling = false
     sensorManager.unregisterListener(this);
     Log.d(TAG, "Stoped sensor listener")
   }
 
   private fun startSensorListener() {
     Log.d(TAG, "Registering sensor listener")
-    if(!isRunning){
-      isRunning = true
-      sensorManager.registerListener(this, sensor, 5000, 500000)
+    if (!isSampling) {
+      isSampling = true
+      sensorManager.registerListener(this, sensor, 1000, 100000)
     }
   }
 
   override fun onSensorChanged(event: SensorEvent?) {
-    Log.d(TAG, "Got new sensor information")
-    if (!isRunning) {
+    Log.v(TAG, "Got new sensor information")
+    if (!isSampling) {
       stopSensorListener()
     }
 
@@ -83,11 +110,12 @@ class SensorCollector : SensorEventListener {
       Log.d(TAG, "Value: " + event.values[0] + " accuracy: " + event.accuracy)
 
       if (event.accuracy >= sensorThreshhold) {
-        this.values.add(event)
+        this.values.add(SensorData(event))
         stopSensorListener()
       } else {
         if (retries <= 0) {
           Log.d(TAG, "Aborting due to too many retries")
+          this.values.add(SensorData(event))
           stopSensorListener()
         }
       }
@@ -95,8 +123,4 @@ class SensorCollector : SensorEventListener {
   }
 
   override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-  fun stopSampling() {
-    stopSensorListener()
-  }
-
 }

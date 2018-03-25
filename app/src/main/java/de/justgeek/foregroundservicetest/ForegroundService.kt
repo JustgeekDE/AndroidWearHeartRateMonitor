@@ -6,7 +6,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.hardware.Sensor
-import android.hardware.SensorEvent
 import android.hardware.SensorManager
 import android.os.Binder
 import android.os.IBinder
@@ -17,12 +16,14 @@ import android.util.Log
 
 
 class ForegroundService : IntentService("Foreground") {
-  private val TAG = "Forgeground service"
-  private val COLLECTION_INTERVAL = 30
+  enum class SENORS { HEARTRATE, ROTATION, BATTERY }
 
-  private var mainThreadRunning = false;
-  private var startMainThread = false;
+  private val TAG = "Forgeground service"
+
+  private var isStarted = false;
   private lateinit var heartRateCollector: SensorCollector
+  private lateinit var rotationCollector: SensorCollector
+  private lateinit var batteryCollector: BatteryCollector
   private lateinit var wakelock: PowerManager.WakeLock
 
   // Binder given to clients
@@ -59,11 +60,20 @@ class ForegroundService : IntentService("Foreground") {
     val notificationManager = NotificationManagerCompat.from(this)
     notificationManager.notify(notificationId, notification)
 
-    heartRateCollector = SensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, 15)
+    heartRateCollector = SensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, 15, retries = 10)
     if (!heartRateCollector.setSensor(Sensor.TYPE_HEART_RATE)) {
       Log.d(TAG, "No heart rate sensor found, falling back to light sensor")
       heartRateCollector.setSensor(Sensor.TYPE_LIGHT)
     }
+
+    rotationCollector = SensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, interval = 5)
+    if(!rotationCollector.setSensor(Sensor.TYPE_ROTATION_VECTOR)) {
+      rotationCollector.setSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
+    }
+
+    batteryCollector = BatteryCollector(applicationContext, 60)
+
+    heartRateCollector.listAllSensors()
 
     val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
     wakelock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
@@ -85,42 +95,41 @@ class ForegroundService : IntentService("Foreground") {
   fun start() {
     Log.d(TAG, "Start called")
 
-    if (!mainThreadRunning) {
-      mainThreadRunning = true
-      mainThread()
+    if (!isStarted) {
+      isStarted = true
+      heartRateCollector.start()
+      rotationCollector.start()
+      batteryCollector.start()
     }
     Log.d(TAG, "Start returned")
   }
 
   fun stop() {
     Log.d(TAG, "Stop called")
-    mainThreadRunning = false
+    heartRateCollector.stop()
+    rotationCollector.stop()
+    batteryCollector.stop()
+    isStarted = false
   }
 
   fun isStarted(): Boolean {
-    return mainThreadRunning
+    return isStarted
   }
 
-  fun getValues(): List<SensorEvent> {
+
+  fun getValues(sensor: SENORS): List<SensorData> {
+    if (sensor == SENORS.BATTERY) {
+      return this.batteryCollector.values;
+    }
+    if (sensor == SENORS.ROTATION) {
+      return this.rotationCollector.values;
+    }
     return this.heartRateCollector.values;
-  }
-
-  private fun mainThread() {
-    Thread(Runnable {
-      while (mainThreadRunning == true) {
-        Log.d(TAG, "Main Thread")
-        heartRateCollector.startSampling()
-        Thread.sleep(COLLECTION_INTERVAL * 1000L)
-      }
-      heartRateCollector.stopSampling()
-      Log.d(TAG, "Main Thread finished")
-    }).start()
   }
 
   override fun onDestroy() {
     Log.d(TAG, "Destroying " + this.hashCode())
-    heartRateCollector.stopSampling()
-    this.mainThreadRunning = false
+    this.stop()
     wakelock.release()
     super.onDestroy()
   }

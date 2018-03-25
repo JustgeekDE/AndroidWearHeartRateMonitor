@@ -12,15 +12,13 @@ import java.util.*
 
 class FileStorage {
 
-  private val name: String
   private val timeOffset: Long
 
-  constructor(name: String) {
-    this.name = name
+  constructor() {
     this.timeOffset = System.nanoTime()
   }
 
-  fun storeData(data: List<SensorEvent>): Boolean {
+  fun storeData(name: String, data: List<SensorData>): Boolean {
     val file = createNewFile(name) ?: return false;
 
     file.write("Timestamp, seconds, time, accuracy, values\n".toByteArray())
