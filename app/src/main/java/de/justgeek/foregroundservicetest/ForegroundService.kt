@@ -1,25 +1,40 @@
 package de.justgeek.foregroundservicetest
 
 import android.app.IntentService
-import android.content.Intent
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
+import android.content.Intent
 import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.os.Handler
+import android.os.Binder
 import android.support.v4.app.NotificationCompat
-import android.util.Log
 import android.support.v4.app.NotificationManagerCompat
-import android.os.PowerManager
+import android.util.Log
+import android.os.IBinder
+import android.graphics.Bitmap
 
 
 class ForegroundService : IntentService("Foreground") {
   private val TAG = "Forgeground service"
+  private val COLLECTION_INTERVAL = 5
+
   private var mainThreadRunning = false;
+  private var startMainThread = false;
   private lateinit var heartRateCollector: SensorCollector
+
+  // Binder given to clients
+  private val mBinder = LocalBinder()
+
+  inner class LocalBinder : Binder() {
+    internal// Return this instance of LocalService so clients can call public methods
+    val service: ForegroundService
+      get() = this@ForegroundService
+  }
+
+  override fun onBind(intent: Intent): IBinder? {
+    return mBinder
+  }
 
   override fun onCreate() {
     Log.d(TAG, "Creating service " + this.hashCode())
@@ -43,49 +58,55 @@ class ForegroundService : IntentService("Foreground") {
     notificationManager.notify(notificationId, notification)
 
     heartRateCollector = SensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, 5)
-    heartRateCollector.setSensor(Sensor.TYPE_LIGHT)
-
-    startForeground(1, notification)
-
-//        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-//        val wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "My Tag")
-//        wl.acquire()
-
-  }
-
-  override fun onHandleIntent(intent: Intent?) {
-    if (intent?.action == "stop") {
-      Log.d(TAG, "stoping service")
-      mainThreadRunning = false;
-    } else if (intent?.action == "start" && !mainThreadRunning) {
-      Log.d(TAG, "starting service")
-      mainThread()
+    if (!heartRateCollector.setSensor(Sensor.TYPE_HEART_RATE)) {
+      Log.d(TAG, "No heart rate sensor found, falling back to light sensor")
+      heartRateCollector.setSensor(Sensor.TYPE_LIGHT)
     }
+    startForeground(1, notification)
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    Log.d(TAG, "onStartCommand received")
-    Log.i(TAG, "Received start id " + startId + ": " + flags + " / " + intent?.action);
     super.onStartCommand(intent, flags, startId)
-    if (intent?.action == "stop") {
-      Log.d(TAG, "stoping service")
-      mainThreadRunning = false;
-    }
-
     return Service.START_REDELIVER_INTENT
   }
 
-  private fun mainThread() {
-    mainThreadRunning = true
-    while (mainThreadRunning == true) {
-      Log.d(TAG, "Main Thread")
-      heartRateCollector.startSampling()
-      Thread.sleep(30000)
+  override fun onHandleIntent(intent: Intent?) {
+    Log.d(TAG, "Recieved intent")
+  }
+
+  fun start() {
+    Log.d(TAG, "Start called")
+
+    if(!mainThreadRunning) {
+      mainThreadRunning = true
+      mainThread()
     }
+    Log.d(TAG, "Start returned")
+  }
+
+  fun stop() {
+    Log.d(TAG, "Stop called")
+    mainThreadRunning = false
+  }
+
+  fun isStarted(): Boolean {
+    return mainThreadRunning
+  }
+
+  private fun mainThread() {
+    Thread(Runnable {
+      while (mainThreadRunning == true) {
+        Log.d(TAG, "Main Thread")
+        heartRateCollector.startSampling()
+        Thread.sleep(COLLECTION_INTERVAL * 1000L)
+      }
+      Log.d(TAG, "Main Thread finished")
+    }).start()
   }
 
   override fun onDestroy() {
     Log.d(TAG, "Destroying " + this.hashCode())
+    this.mainThreadRunning = false
     super.onDestroy()
   }
 }

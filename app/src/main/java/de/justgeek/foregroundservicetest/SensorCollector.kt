@@ -1,18 +1,16 @@
 package de.justgeek.foregroundservicetest
 
-import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
-import java.util.*
 
 class SensorCollector : SensorEventListener {
 
   val TAG = "SensorCollector"
 
-  private lateinit var sensorManager: SensorManager
+  private var sensorManager: SensorManager
   private lateinit var sensor: Sensor
 
   private var values: MutableList<SensorEvent> = mutableListOf<SensorEvent>()
@@ -73,11 +71,13 @@ class SensorCollector : SensorEventListener {
         stopSensorListener()
       } else {
         if (retries <= 0) {
+          Log.d(TAG, "Aborting due to too many retries")
           stopSensorListener()
         }
       }
     }
   }
+
   override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
 }

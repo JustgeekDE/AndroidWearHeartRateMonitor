@@ -35,7 +35,7 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".ForegroundService" android:process=":sensorService">
+        <service android:name=".ForegroundService">
 
         </service>
 
