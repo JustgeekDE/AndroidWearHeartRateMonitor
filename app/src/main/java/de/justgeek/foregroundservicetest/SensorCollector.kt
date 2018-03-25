@@ -1,11 +1,11 @@
 package de.justgeek.foregroundservicetest
 
 import android.hardware.Sensor
+
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
-
 class SensorCollector : SensorEventListener {
 
   val TAG = "SensorCollector"
@@ -13,14 +13,18 @@ class SensorCollector : SensorEventListener {
   private var sensorManager: SensorManager
   private lateinit var sensor: Sensor
 
-  private var values: MutableList<SensorEvent> = mutableListOf<SensorEvent>()
+  var values: MutableList<SensorEvent> = mutableListOf<SensorEvent>()
 
+  private val sensorThreshhold: Int
   private var maxRetries: Int
   private var retries = 0
 
-  constructor(sensorManager: SensorManager, retries: Int) {
+  private var isRunning = false
+
+  constructor(sensorManager: SensorManager, retries: Int = 5, sensorThreshhold: Int = SensorManager.SENSOR_STATUS_ACCURACY_LOW) {
     this.sensorManager = sensorManager
     this.maxRetries = retries
+    this.sensorThreshhold = sensorThreshhold
   }
 
   fun listAllSensors() {
@@ -51,14 +55,26 @@ class SensorCollector : SensorEventListener {
   }
 
   private fun stopSensorListener() {
+    Log.d(TAG, "Stopping sensor listener")
+    isRunning = false
     sensorManager.unregisterListener(this);
+    Log.d(TAG, "Stoped sensor listener")
   }
 
   private fun startSensorListener() {
-    sensorManager.registerListener(this, sensor, 1000)
+    Log.d(TAG, "Registering sensor listener")
+    if(!isRunning){
+      isRunning = true
+      sensorManager.registerListener(this, sensor, 5000, 500000)
+    }
   }
 
   override fun onSensorChanged(event: SensorEvent?) {
+    Log.d(TAG, "Got new sensor information")
+    if (!isRunning) {
+      stopSensorListener()
+    }
+
     val eventSensor = event?.sensor ?: return
 
     if (eventSensor.type == sensor.type) {
@@ -66,7 +82,7 @@ class SensorCollector : SensorEventListener {
       Log.d(TAG, "Got new sensor information")
       Log.d(TAG, "Value: " + event.values[0] + " accuracy: " + event.accuracy)
 
-      if (event.accuracy >= SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM) {
+      if (event.accuracy >= sensorThreshhold) {
         this.values.add(event)
         stopSensorListener()
       } else {
@@ -79,5 +95,8 @@ class SensorCollector : SensorEventListener {
   }
 
   override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+  fun stopSampling() {
+    stopSensorListener()
+  }
 
 }

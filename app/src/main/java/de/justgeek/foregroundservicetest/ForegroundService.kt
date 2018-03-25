@@ -6,22 +6,24 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.hardware.Sensor
+import android.hardware.SensorEvent
 import android.hardware.SensorManager
 import android.os.Binder
+import android.os.IBinder
+import android.os.PowerManager
 import android.support.v4.app.NotificationCompat
 import android.support.v4.app.NotificationManagerCompat
 import android.util.Log
-import android.os.IBinder
-import android.graphics.Bitmap
 
 
 class ForegroundService : IntentService("Foreground") {
   private val TAG = "Forgeground service"
-  private val COLLECTION_INTERVAL = 5
+  private val COLLECTION_INTERVAL = 30
 
   private var mainThreadRunning = false;
   private var startMainThread = false;
   private lateinit var heartRateCollector: SensorCollector
+  private lateinit var wakelock: PowerManager.WakeLock
 
   // Binder given to clients
   private val mBinder = LocalBinder()
@@ -57,11 +59,17 @@ class ForegroundService : IntentService("Foreground") {
     val notificationManager = NotificationManagerCompat.from(this)
     notificationManager.notify(notificationId, notification)
 
-    heartRateCollector = SensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, 5)
+    heartRateCollector = SensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, 15)
     if (!heartRateCollector.setSensor(Sensor.TYPE_HEART_RATE)) {
       Log.d(TAG, "No heart rate sensor found, falling back to light sensor")
       heartRateCollector.setSensor(Sensor.TYPE_LIGHT)
     }
+
+    val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+    wakelock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+        "MyWakelockTag")
+    wakelock.acquire()
+
     startForeground(1, notification)
   }
 
@@ -77,7 +85,7 @@ class ForegroundService : IntentService("Foreground") {
   fun start() {
     Log.d(TAG, "Start called")
 
-    if(!mainThreadRunning) {
+    if (!mainThreadRunning) {
       mainThreadRunning = true
       mainThread()
     }
@@ -93,6 +101,10 @@ class ForegroundService : IntentService("Foreground") {
     return mainThreadRunning
   }
 
+  fun getValues(): List<SensorEvent> {
+    return this.heartRateCollector.values;
+  }
+
   private fun mainThread() {
     Thread(Runnable {
       while (mainThreadRunning == true) {
@@ -100,13 +112,16 @@ class ForegroundService : IntentService("Foreground") {
         heartRateCollector.startSampling()
         Thread.sleep(COLLECTION_INTERVAL * 1000L)
       }
+      heartRateCollector.stopSampling()
       Log.d(TAG, "Main Thread finished")
     }).start()
   }
 
   override fun onDestroy() {
     Log.d(TAG, "Destroying " + this.hashCode())
+    heartRateCollector.stopSampling()
     this.mainThreadRunning = false
+    wakelock.release()
     super.onDestroy()
   }
 }
