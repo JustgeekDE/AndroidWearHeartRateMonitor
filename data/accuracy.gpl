@@ -1,0 +1,34 @@
+set title "accuracy vs. heart rate"
+
+set style line 52 lc rgb '#202020' lt 1 lw 0.5
+set style line 53 lc rgb '#404040' lt 1 lw 0.5
+set style line 54 lc rgb '#808080' lt 1 lw 0.5
+set style line 55 lc rgb '#A0A0A0' lt 1 lw 0.5
+set style line 56 lc rgb '#C0C0C0' lt 1 lw 0.5
+set grid back ls 52
+
+set style fill solid 1.0 border lt 0
+ 
+set border ls 54
+set border 3
+  
+set xtics textcolor ls 54
+set ytics textcolor ls 54
+   
+set xlabel "X" textcolor ls 54
+set ylabel "Y" textcolor ls 54
+set title textcolor ls 54
+    
+set key textcolor ls 54
+set key noopaque
+
+
+set output "heartRate.png"
+set terminal png size 2560,800 background "#000000"
+
+set xdata time
+set timefmt "%H:%M"
+
+set palette model RGB defined ( 1 '#FF0000', 2 '#c8c800', 3 '#00C000' )
+unset colorbox
+plot 'heartRate.csv' using 3:5:4 with points pt 7 ps 1 palette title 'heart rate'
