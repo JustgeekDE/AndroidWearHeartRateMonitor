@@ -1,4 +1,4 @@
-package de.justgeek.foregroundservicetest
+package de.justgeek.foregroundservicetest.Sensor
 
 import android.hardware.SensorEvent
 
@@ -11,6 +11,12 @@ class SensorData {
     this.accuracy = event.accuracy
     this.timestamp = event.timestamp
     this.values = event.values
+  }
+
+  constructor(timestamp: Long, accuracy: Int, values: FloatArray) {
+    this.timestamp = timestamp
+    this.accuracy = accuracy
+    this.values = values
   }
 
   constructor(values: FloatArray) {

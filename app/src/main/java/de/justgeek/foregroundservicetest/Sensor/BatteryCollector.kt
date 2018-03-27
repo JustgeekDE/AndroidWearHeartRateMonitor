@@ -1,4 +1,4 @@
-package de.justgeek.foregroundservicetest
+package de.justgeek.foregroundservicetest.Sensor
 
 import android.content.Context
 import android.content.Intent
@@ -6,35 +6,36 @@ import android.content.IntentFilter
 import android.os.BatteryManager.EXTRA_LEVEL
 import android.os.BatteryManager.EXTRA_SCALE
 import android.util.Log
+import de.justgeek.foregroundservicetest.RepeatableThread
+import de.justgeek.foregroundservicetest.RepeatingThread
 
 
-class BatteryCollector {
-
+class BatteryCollector : RepeatableThread, DataCollector {
   val TAG = "BatteryCollector"
 
-  var values: MutableList<SensorData> = mutableListOf<SensorData>()
+  override var values: MutableList<SensorData> = mutableListOf<SensorData>()
 
   private val context: Context
-  private var mainThreadRunning = false
-  private val interval: Int
+  private val samplingThread: RepeatingThread
 
   constructor(context: Context, interval: Int = 30) {
     this.context = context
-    this.interval = interval
+    this.samplingThread = RepeatingThread(this, interval)
   }
 
-  fun start() {
-    if (mainThreadRunning == false) {
-      mainThreadRunning = true
-      Thread(Runnable {
-        while (mainThreadRunning == true) {
-          Log.d(TAG, "Main Thread")
-          sampleBattery()
-          Thread.sleep(interval * 1000L)
-        }
-        Log.d(TAG, "Main Thread finished")
-      }).start()
-    }
+  override fun start() {
+    samplingThread.start()
+  }
+
+  override fun stop() {
+    samplingThread.stop()
+  }
+
+  override fun run() {
+    sampleBattery()
+  }
+
+  override fun cancel() {
   }
 
   private fun sampleBattery() {
@@ -53,10 +54,4 @@ class BatteryCollector {
     Log.v(TAG, "Adding new battery value " + batteryPct + " ( " + level + " / " + scale + " )")
     this.values.add(SensorData(values))
   }
-
-  fun stop() {
-    mainThreadRunning = false
-  }
-
-
 }

@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.wearable.activity.WearableActivity
+import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import de.justgeek.foregroundservicetest.ForegroundService.LocalBinder
@@ -24,7 +25,8 @@ class MainActivity : WearableActivity() {
   private val MY_PERMISSIONS_REQUEST_BODY_SENSORS: Int = 1
   private val MY_PERMISSIONS_REQUEST_STORAGE: Int = 2
 
-  var serviceStarted = false;
+  var serviceStarted = false
+  var saved = false
   private var mService: ForegroundService? = null
   var mBound = false
   var runDisplayUpdate = true
@@ -63,11 +65,17 @@ class MainActivity : WearableActivity() {
       buttonToggle()
     }
     findViewById<Button>(R.id.exitButton).setOnClickListener { _ ->
+      Log.d(TAG, "Exit pressed")
       onExitPressed()
     }
     findViewById<Button>(R.id.saveButton).setOnClickListener { _ ->
+      Log.d(TAG, "Save pressed")
       onSavePressed()
     }
+    findViewById<Button>(R.id.saveButton).setTextColor(getColor(R.color.light_grey))
+    saved = false
+
+    Log.d(TAG, "Save button wired")
   }
 
   override fun onDestroy() {
@@ -117,6 +125,7 @@ class MainActivity : WearableActivity() {
     } else {
       mService?.start()
       serviceStarted = true
+      setSaveEnabled(true)
     }
     setButtonLabel()
   }
@@ -135,13 +144,41 @@ class MainActivity : WearableActivity() {
   }
 
   fun onSavePressed() {
-    if (mService != null) {
+    if ((mService != null) && (saved == false)) {
+      Log.d(TAG, "Starting to store data")
       val foregroundService = this.mService as ForegroundService
-      storageHelper.storeData("heartrate", foregroundService.getValues(ForegroundService.SENORS.HEARTRATE))
-      storageHelper.storeData("rotation", foregroundService.getValues(ForegroundService.SENORS.ROTATION))
-      storageHelper.storeData("battery", foregroundService.getValues(ForegroundService.SENORS.BATTERY))
-    }
+      Thread(Runnable {
+        setSaveButtonColor(R.color.red)
 
+        storageHelper.storeData("heartrate", foregroundService.getValues(ForegroundService.SENORS.HEARTRATE))
+        storageHelper.storeData("rotation", foregroundService.getValues(ForegroundService.SENORS.ROTATION))
+        storageHelper.storeData("battery", foregroundService.getValues(ForegroundService.SENORS.BATTERY))
+        storageHelper.storeData("acceleration", foregroundService.getValues(ForegroundService.SENORS.ACCELERATION))
+        saved = true
+        Log.d(TAG, "Done storing data")
+
+        setSaveEnabled(false)
+      })
+
+    } else {
+      Log.d(TAG, "Ignoring save, because there is no new data")
+    }
+  }
+
+  private fun setSaveButtonColor(color: Int) {
+    runOnUiThread(Runnable {
+      findViewById<Button>(R.id.saveButton).setTextColor(getColor(color))
+    })
+  }
+
+  private fun setSaveEnabled(enabled: Boolean) {
+    if(enabled) {
+      saved = false
+      setSaveButtonColor(R.color.green)
+    } else {
+      saved = true
+      setSaveButtonColor(R.color.grey)
+    }
   }
 
   private fun startService(action: String) {

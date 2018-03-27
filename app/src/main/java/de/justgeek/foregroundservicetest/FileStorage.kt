@@ -1,8 +1,9 @@
 package de.justgeek.foregroundservicetest
 
-import android.hardware.SensorEvent
 import android.os.Environment
 import android.text.format.DateFormat
+import android.util.Log
+import de.justgeek.foregroundservicetest.Sensor.SensorData
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
@@ -11,14 +12,18 @@ import java.util.*
 
 
 class FileStorage {
+  val TAG = "FileStorage"
 
   private val timeOffset: Long
+  private val startTime: Long
 
   constructor() {
     this.timeOffset = System.nanoTime()
+    this.startTime = Date().time / 1000L
   }
 
   fun storeData(name: String, data: List<SensorData>): Boolean {
+    Log.d(TAG, "Storing new file: " + name)
     val file = createNewFile(name) ?: return false;
 
     file.write("Timestamp, seconds, time, accuracy, values\n".toByteArray())
@@ -31,6 +36,7 @@ class FileStorage {
       dataString += (entry.timestamp).toString()
       dataString += ", " + (sensorTimeSinceStart / 1000).toString()
       dataString += ", " + getDate(sensorTimeInUTC)
+      dataString += ", " + sensorTimeInUTC
       dataString += ", " + entry.accuracy.toString()
       for (value in entry.values) {
         dataString += ", " + value.toString()
@@ -48,11 +54,10 @@ class FileStorage {
   }
 
   private fun createNewFile(filename: String): FileOutputStream? {
-    val timestamp = System.currentTimeMillis() / 1000
     val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
 
     try {
-      var fileName = String.format("%s/%s.-.%d.csv", downloadDir.getAbsolutePath(), filename, timestamp)
+      var fileName = String.format("%s/%s.-.%d.csv", downloadDir.getAbsolutePath(), filename, startTime)
       fileName = fileName.replace(" ", ".")
       return FileOutputStream(File(fileName), false)
     } catch (e: FileNotFoundException) {
@@ -64,8 +69,8 @@ class FileStorage {
 
   private fun getDate(time: Long): String {
     val cal = Calendar.getInstance(Locale.ENGLISH)
-    cal.timeInMillis = time
-    return DateFormat.format("hh:mm.ss", cal).toString()
+    cal.timeInMillis = time - (60 * 60 * 1000)
+    return DateFormat.format("HH:mm.ss", cal).toString()
   }
 }
 

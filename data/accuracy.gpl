@@ -1,5 +1,3 @@
-set title "accuracy vs. heart rate"
-
 set style line 52 lc rgb '#202020' lt 1 lw 0.5
 set style line 53 lc rgb '#404040' lt 1 lw 0.5
 set style line 54 lc rgb '#808080' lt 1 lw 0.5
@@ -23,12 +21,47 @@ set key textcolor ls 54
 set key noopaque
 
 
-set output "heartRate.png"
-set terminal png size 2560,800 background "#000000"
-
 set xdata time
 set timefmt "%H:%M"
 
+set title "accuracy vs. heart rate"
+set output "out/heartRate.png"
+set terminal png size 2560,800 background "#000000"
+
 set palette model RGB defined ( 1 '#FF0000', 2 '#c8c800', 3 '#00C000' )
 unset colorbox
-plot 'heartRate.csv' using 3:5:4 with points pt 7 ps 1 palette title 'heart rate'
+plot 'heartRate.csv' using 3:6:5 with points pt 7 ps 1 palette title 'heart rate', \
+     'heartRate.csv' using 3:7 with lines title 'average'
+
+
+set title "Battery charge"
+set output "out/battery.png"
+set terminal png size 2560,800 background "#000000"
+plot 'battery.csv' using 3:6 with lines title 'battery'
+
+
+set title "Rotation"
+set output "out/rotation.png"
+set terminal png size 2560,800 background "#000000"
+plot 'rotation.csv' using 3:6 with lines title 'x', \
+     'rotation.csv' using 3:7 with lines title 'y', \
+     'rotation.csv' using 3:8 with lines title 'z', \
+     'rotation.csv' using 3:9 with lines title 'scalar'
+
+
+set title "Acceleration"
+set output "out/acceleration-median.png"
+set terminal png size 2560,800 background "#000000"
+plot 'acceleration.csv' using 3:7 with lines title 'x', \
+     'acceleration.csv' using 3:10 with lines title 'y', \
+     'acceleration.csv' using 3:13 with lines title 'z'
+
+
+set title "Acceleration"
+set output "out/acceleration-max.png"
+set terminal png size 2560,800 background "#000000"
+plot 'acceleration.csv' using 3:6 with lines title 'x', \
+     'acceleration.csv' using 3:9 with lines title 'y', \
+     'acceleration.csv' using 3:12 with lines title 'z'
+
+
