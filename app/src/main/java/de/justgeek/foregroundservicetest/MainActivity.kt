@@ -97,7 +97,7 @@ class MainActivity : WearableActivity() {
     val r = object : Runnable {
       override fun run() {
         if (runDisplayUpdate) {
-          handler.postDelayed(this, 2000)
+          handler.postDelayed(this, 5000)
           updateDisplay()
         }
       }
@@ -111,7 +111,7 @@ class MainActivity : WearableActivity() {
       val count = values.size
       var lastHeartRate = ""
       if (count > 0) {
-        lastHeartRate += values.last().values[0]
+        lastHeartRate += (values.last().values[0]).toInt()
       }
       findViewById<TextView>(R.id.heartRate).setText(lastHeartRate)
       findViewById<TextView>(R.id.count).setText("" + count)
@@ -145,10 +145,11 @@ class MainActivity : WearableActivity() {
 
   fun onSavePressed() {
     if ((mService != null) && (saved == false)) {
-      Log.d(TAG, "Starting to store data")
       val foregroundService = this.mService as ForegroundService
       Thread(Runnable {
+        Log.d(TAG, "Starting to store data")
         setSaveButtonColor(R.color.red)
+        Thread.sleep(250)
 
         storageHelper.storeData("heartrate", foregroundService.getValues(ForegroundService.SENORS.HEARTRATE))
         storageHelper.storeData("rotation", foregroundService.getValues(ForegroundService.SENORS.ROTATION))
@@ -158,7 +159,7 @@ class MainActivity : WearableActivity() {
         Log.d(TAG, "Done storing data")
 
         setSaveEnabled(false)
-      })
+      }).start()
 
     } else {
       Log.d(TAG, "Ignoring save, because there is no new data")

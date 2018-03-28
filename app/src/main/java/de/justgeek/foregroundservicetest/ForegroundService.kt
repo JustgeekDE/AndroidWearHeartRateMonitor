@@ -27,6 +27,7 @@ class ForegroundService : IntentService("Foreground") {
   private lateinit var notificationBuilder: NotificationCompat.Builder
 
   private lateinit var dataCollectors: List<DataCollector>
+  private lateinit var notificationUpdater: RepeatingThread
 
   // Binder given to clients
   private val mBinder = LocalBinder()
@@ -47,7 +48,7 @@ class ForegroundService : IntentService("Foreground") {
 
     val notificationId = 1
     notificationBuilder = createNotification()
-    val notification = updateNotification(notificationId, null)
+    val notification = updateNotification(notificationId)
 
     dataCollectors = setupSensors()
 
@@ -55,6 +56,14 @@ class ForegroundService : IntentService("Foreground") {
     wakelock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
         "MyWakelockTag")
     wakelock.acquire()
+
+    notificationUpdater = RepeatingThread(object : RepeatableThread {
+      override fun run() {
+        updateNotification(notificationId)
+      }
+
+      override fun cancel() {}
+    }, 30)
 
     startForeground(1, notification)
   }
@@ -74,10 +83,13 @@ class ForegroundService : IntentService("Foreground") {
     return notificationBuilder
   }
 
-  private fun updateNotification(notificationId: Int, heartrate: String?): Notification? {
+  private fun updateNotification(notificationId: Int): Notification? {
     var message = "Collecting heart rate"
-    if (heartrate != null) {
-      message = heartrate
+
+    val hearRateValues = getValues(SENORS.HEARTRATE)
+    if (hearRateValues.size > 0) {
+      message = "Heartrate: " + hearRateValues.last().values[0].toInt()
+      message += "Values: " + hearRateValues.size
     }
 
     notificationBuilder.setContentText(message)
@@ -90,7 +102,7 @@ class ForegroundService : IntentService("Foreground") {
   private fun setupSensors(): List<DataCollector> {
     val collectors = mutableListOf<DataCollector>()
 
-    val heartrate = IntervalAverageSensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, 15, retries = 10)
+    val heartrate = IntervalAverageSensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, 15, retries = 10, windowSize = 7)
     val rotation = IntervalSensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, 5)
     val acceleration = StatisticsSensorCollector(getSystemService(Context.SENSOR_SERVICE) as SensorManager, sensorThreshhold = 0)
 
@@ -132,6 +144,7 @@ class ForegroundService : IntentService("Foreground") {
       for (collector in dataCollectors) {
         collector.start()
       }
+      notificationUpdater.start()
     }
     Log.d(TAG, "Start returned")
   }
@@ -141,6 +154,7 @@ class ForegroundService : IntentService("Foreground") {
     for (collector in dataCollectors) {
       collector.stop()
     }
+    notificationUpdater.stop()
     isStarted = false
   }
 
