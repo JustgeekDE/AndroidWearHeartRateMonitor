@@ -46,11 +46,12 @@ class ForegroundService : IntentService("Foreground") {
     Log.d(TAG, "Creating service " + this.hashCode())
     super.onCreate()
 
+    dataCollectors = setupSensors()
+
     val notificationId = 1
     notificationBuilder = createNotification()
     val notification = updateNotification(notificationId)
 
-    dataCollectors = setupSensors()
 
     val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
     wakelock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
@@ -88,8 +89,8 @@ class ForegroundService : IntentService("Foreground") {
 
     val hearRateValues = getValues(SENORS.HEARTRATE)
     if (hearRateValues.size > 0) {
-      message = "Heartrate: " + hearRateValues.last().values[0].toInt()
-      message += "Values: " + hearRateValues.size
+      message = "Heartrate: " + hearRateValues.last().values[1].toInt()
+      message += "\nValues: " + hearRateValues.size
     }
 
     notificationBuilder.setContentText(message)
